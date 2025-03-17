@@ -5,13 +5,14 @@
     <style>
         #rss-feed-container {
             max-width: 100%;
-            margin: 10px 0;
+            margin: 0;
             font-family: "BIZ UDPGothic", "Arial", sans-serif;
             line-height: 1.5;
         }
         #rss-feed-list {
             list-style: none;
             padding: 0;
+            margin: 0;
         }
         #rss-feed-list li {
             margin: 8px 0;
@@ -67,6 +68,9 @@
             margin: 0;
             padding: 0;
             background: transparent;
+        }
+        h3 {
+            margin: 10px 0;
         }
     </style>
 </head>
@@ -135,6 +139,10 @@
                     li.appendChild(a);
                     container.appendChild(li);
                 });
+                // iframeの高さを親に送信
+                window.parent.postMessage({
+                    height: document.body.scrollHeight
+                }, "*");
             }
 
             function loadNextRSS() {
