@@ -1,42 +1,100 @@
-function displayItems() {
-    const container = document.getElementById("rss-feed-list");
-    if (!container) {
-        console.error("RSS container not found!");
-        return;
-    }
-    allItems = shuffleArray(allItems).slice(0, 8);
-    const redIndices = [];
-    while (redIndices.length < 4 && redIndices.length < allItems.length) {
-        const idx = Math.floor(Math.random() * allItems.length);
-        if (!redIndices.includes(idx)) redIndices.push(idx);
-    }
-    const badgeIndices = [];
-    const badgeCount = Math.floor(Math.random() * 5);
-    while (badgeIndices.length < badgeCount && badgeIndices.length < redIndices.length) {
-        const idx = redIndices[Math.floor(Math.random() * redIndices.length)];
-        if (!badgeIndices.includes(idx)) badgeIndices.push(idx);
-    }
-    container.innerHTML = "";
-    allItems.forEach((item, i) => {
-        const li = document.createElement("li"),
-              a = document.createElement("a");
-        a.href = item.link;
-        a.textContent = item.title;
-        a.target = "_blank";
-        if (redIndices.includes(i)) {
-            a.className = "red";
-            if (badgeIndices.includes(i)) {
-                const badge = document.createElement("span");
-                badge.textContent = "新着";
-                badge.className = "new-badge";
-                li.appendChild(badge);
-            }
+(function() {
+    console.log("RedRSS iframe started");
+    const adultWords = ["アダルト", "エロ", "パンツ", "おっぱい", "sex", "セックス", "ポルノ", "18禁", "裸", "下着", "えっち", "スケベ", "痴漢", "風俗", "ヌード"],
+          rssConfigs = [
+              { url: "https://newmofu.doorblog.jp/index.rdf", limit: 3 },
+              { url: "https://moudamepo.com/feed/feed_10.xml", limit: 3 },
+              { url: "https://moudamepo.com/feed.cgi?code=1972", limit: 2 },
+              { url: "https://newpuru.com/rss/news-noadult.xml", limit: 2 },
+              { url: "https://yuukoku.net/rss/feed.xml", limit: 2 },
+              { url: "https://matomeantena.com/news1h.rdf", limit: 2 }
+          ];
+    let allItems = [], currentIndex = 0;
+
+    function shuffleArray(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
         }
-        li.appendChild(a);
-        container.appendChild(li);
-    });
-    // 高さに余裕を追加
-    window.parent.postMessage({
-        height: document.body.scrollHeight + 20 // 20px余裕
-    }, "*");
-}
+        return a;
+    }
+
+    function filterAdultContent(t) {
+        return !adultWords.some(w => t.toLowerCase().includes(w));
+    }
+
+    function updateHeight() {
+        window.parent.postMessage({
+            height: document.body.scrollHeight + 20
+        }, "*");
+    }
+
+    function displayItems() {
+        const container = document.getElementById("rss-feed-list");
+        if (!container) {
+            console.error("RSS container not found!");
+            return;
+        }
+        allItems = shuffleArray(allItems).slice(0, 8);
+        const redIndices = [];
+        while (redIndices.length < 4 && redIndices.length < allItems.length) {
+            const idx = Math.floor(Math.random() * allItems.length);
+            if (!redIndices.includes(idx)) redIndices.push(idx);
+        }
+        const badgeIndices = [];
+        const badgeCount = Math.floor(Math.random() * 5);
+        while (badgeIndices.length < badgeCount && badgeIndices.length < redIndices.length) {
+            const idx = redIndices[Math.floor(Math.random() * redIndices.length)];
+            if (!badgeIndices.includes(idx)) badgeIndices.push(idx);
+        }
+        container.innerHTML = "";
+        allItems.forEach((item, i) => {
+            const li = document.createElement("li"),
+                  a = document.createElement("a");
+            a.href = item.link;
+            a.textContent = item.title;
+            a.target = "_blank";
+            if (redIndices.includes(i)) {
+                a.className = "red";
+                if (badgeIndices.includes(i)) {
+                    const badge = document.createElement("span");
+                    badge.textContent = "新着";
+                    badge.className = "new-badge";
+                    li.appendChild(badge);
+                }
+            }
+            li.appendChild(a);
+            container.appendChild(li);
+        });
+        setTimeout(updateHeight, 100); // 表示後に高さ更新
+    }
+
+    function loadNextRSS() {
+        if (currentIndex >= rssConfigs.length) {
+            if (allItems.length > 0) displayItems();
+            else console.log("No items loaded");
+            return;
+        }
+        const config = rssConfigs[currentIndex],
+              callbackName = `handleRSS_${Date.now()}_${currentIndex}`;
+        window[callbackName] = function(data) {
+            console.log("RSS data for " + config.url + ":", data);
+            if (data.status === "ok") {
+                const filteredItems = data.items.filter(t => filterAdultContent(t.title)).slice(0, config.limit);
+                allItems = allItems.concat(filteredItems);
+            }
+            currentIndex++;
+            loadNextRSS();
+        };
+        const script = document.createElement("script");
+        script.src = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(config.url)}&callback=${callbackName}`;
+        script.onerror = () => {
+            console.error("Failed to load RSS: " + config.url);
+            currentIndex++;
+            loadNextRSS();
+        };
+        document.body.appendChild(script);
+    }
+
+    loadNextRSS();
+})();
